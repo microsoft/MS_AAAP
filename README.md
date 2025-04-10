@@ -1,5 +1,7 @@
 ## Quick Download
-[https://aka.ms/MS_AAAP](https://aka.ms/MS_AAAP)
+[https://aka.ms/MS_AAAP](https://aka.ms/MS_AAAP) \
+[![Download Count Latest](https://img.shields.io/github/downloads/microsoft/MS_AAAP/latest/Generate-Microsoft-Support-Logs.zip?style=for-the-badge&color=brightgreen)](https://aka.ms/MS_AAAP) \
+[![Download Count Releases](https://img.shields.io/github/downloads/microsoft/MS_AAAP/total.svg?style=for-the-badge&color=brightgreen)](https://github.com/microsoft/MS_AAAP/releases)
 
 ## About
 This PowerShell script is crafted to streamline the collection and generation of diagnostic files for Microsoft Support on Windows systems. It captures an extensive range of data, including:
