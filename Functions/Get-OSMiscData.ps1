@@ -133,7 +133,8 @@ $servicestxt = "$miscFolder`services.txt"
 Try
 {
 	"================================================================================================================$script:CRLF`== Summary of a few services at UTC time: $(Time-Stamp -UniversalTime)$script:CRLF`----------------------------------------------------------" | Out-FileWithErrorHandling -FilePath $servicestxt
-	$servicesToCheck = Get-Service healthservic*, HybridWorker*, ExtensionServi*, GCArcServi*, himd*, *gateway
+	$servicesList = "healthservic*", "HybridWorker*", "ExtensionServi*", "GCArcServi*", "himd*", "*gateway", "wuauserv", "AutoAssessPatchService", "WindowsAzureGuestAgent"
+	$servicesToCheck = Get-Service $servicesList -ErrorAction SilentlyContinue
 	if ($servicesToCheck)
 	{
 		$servicesToCheck | Sort-Object DisplayName | Format-Table -AutoSize | Out-FileWithErrorHandling -FilePath $servicestxt -Append
@@ -141,6 +142,7 @@ Try
 	else
 	{
 		Write-Console -Text "Did not find any of the typical services we check for." -ForegroundColor DarkYellow
+		"Did not find any of the typical services we check for."| Out-FileWithErrorHandling -FilePath $servicestxt -Append
 	}
 	
 	$serviceDetails = Get-CimInstance Win32_Service
@@ -267,7 +269,7 @@ Write-Console -MessageSegments @(
 	@{ Text = "Gathering RSA Machine Keys permissions"; ForegroundColor = "Cyan" }
 )
 $RSAOutputFile = "$miscFolder`RSA-MachineKeys_Permissions.txt"
-"Local Time: " + (Time-Stamp) + "    Universal Time: " + (Time-Stamp -UniversalTime) + $script:CRLF | Out-FileWithErrorHandling -FilePath $RSAOutputFile
+"Local Time: " + (Time-Stamp) + "    Universal Time: " + (Time-Stamp -UniversalTime) + $script:CRLF | Out-FileWithErrorHandling -Force -FilePath $RSAOutputFile
 "Use this file if you get an error similar to:  Could not create SSL/TLS secure channel " | Out-FileWithErrorHandling -FilePath $RSAOutputFile -Append
 "to confirm $path and the subfiles have the correct permissions $script:CRLF " | Out-FileWithErrorHandling -FilePath $RSAOutputFile -Append
 $path = (Get-Item -Path "$env:ProgramData\Microsoft\Crypto\RSA\MachineKeys").FullName
@@ -405,6 +407,7 @@ catch
 	$errorObject = [PSCustomObject]@{
 		"Computer Name" = $([System.Net.Dns]::GetHostByName(($env:computerName)).HostName)
 		"Current User"  = $runningas
+		"Machine Type"  = Check-AzureVMorArcMachine
 		"OS Version"    = "Unable to retrieve OS information"
 		"Memory Utilized (GB)" = "Unknown"
 		"System Uptime" = "Unknown"
@@ -426,6 +429,7 @@ if ($win32OS)
 	$infoObject = ([PSCustomObject]@{
 			"Computer Name" = $([System.Net.Dns]::GetHostByName(($env:computerName)).HostName)
 			"Current User"  = $runningas
+			"Machine Type"  = Check-AzureVMorArcMachine
 			"OS Version"    = "$($win32OS.Caption) [$($win32OS.OSArchitecture)] ($($win32OS.Version))"
 			"Memory Utilized (GB)" = "$win32OS_MemoryUtilized"
 			"System Uptime" = $SystemUptime
@@ -591,63 +595,84 @@ $PSModules | Format-Table Name, Version, CompatiblePSEditions, DotNetFrameworkVe
 #endregion Misc.txt
 
 #region Gather Installed Programs
-# Add additional property InstallDateObj that will hold the parsed DateTime object
 try
 {
 	Write-Console "Gathering installed software" -ForegroundColor Cyan
-	$Installed_Software = @()
-	# Get 64bit installed software
-	$Installed_Software += Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* | Select-Object  DisplayName, DisplayVersion, Publisher, InstallDate, InstallDateObj, @{ Name = 'Architecture'; Expression = { '64bit' } }
-	$Installed_Software += Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* | Select-Object  DisplayName, DisplayVersion, Publisher, InstallDate, InstallDateObj, @{ Name = 'Architecture'; Expression = { '32bit' } }
 	
-	$TheDate = (([datetime]::Now))
-	     	<# Try to parse dates.
-			$Installed_Software.ForEach({
-					
-					# add more formats if you need
-					[string[]]$formats = @("yyyyMMdd", "MM/dd/yyyy")
-					
-					$installDate = $_.InstallDate
-					$installedDateObj = $null;
-					$formats.ForEach({
-							[DateTime]$dt = New-Object DateTime; if ([datetime]::TryParseExact($installDate, $_, [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$dt))
-							{
-								$installedDateObj = $dt
-							} 
-						});
-					$_.InstallDateObj = $installedDateObj
-				})
-			#>
-	$Installed_recently = @()
-	$Installed_recently = $Installed_Software | Where-Object { ($null -ne $_.DisplayName) } # -or ($(try{($TheDate - $_.InstallDateObj).Days -le $Days}catch{$Test = $true}))) }
-	$installedSoftwareResults = @()
-	if ($Installed_recently.Count -gt 0)
+	$Installed_Software = @()
+	
+	# Get 64bit installed software
+	$Installed_Software += Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* |
+	Select-Object DisplayName, DisplayVersion, Publisher, InstallDate, @{ Name = 'Architecture'; Expression = { '64bit' } }
+	
+	# Get 32bit installed software
+	$Installed_Software += Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* |
+	Select-Object DisplayName, DisplayVersion, Publisher, InstallDate, @{ Name = 'Architecture'; Expression = { '32bit' } }
+	
+	foreach ($item in $Installed_Software)
 	{
-		foreach ($software in $Installed_recently)
+		$parsedDate = $null
+		
+		if ($item.InstallDate -match '^\d{8}$')
 		{
-			$installedSoftwareResults += [pscustomobject]@{
-				'Installed Software' = $software.DisplayName;
-				#'Software Version'   = [version]$software.DisplayVersion;
-				'Software Version'   = $software.DisplayVersion;
-				'Publisher'		     = $software.Publisher;
-				'Install Date'	     = $(try { $installedDate = [Datetime]::ParseExact($software.InstallDate, 'yyyyMMdd', $null) | Get-Date -UFormat "%m/%d/%Y"; Write-Verbose "Determined Install Date for $($software.DisplayName) to be: $installedDate"; $installedDate }
-					catch { Write-Verbose "Unable to determine Install Date for $($software.DisplayName)" })
-				Architecture		 = $software.Architecture;
+			try
+			{
+				$parsedDate = [datetime]::ParseExact($item.InstallDate, 'yyyyMMdd', [System.Globalization.CultureInfo]::InvariantCulture)
+			}
+			catch
+			{
+				# Parsing failed, leave as null
 			}
 		}
+		elseif ($item.InstallDate)
+		{
+			try
+			{
+				$parsedDate = [datetime]::Parse($item.InstallDate)
+			}
+			catch
+			{
+				# Parsing failed, leave as null
+			}
+		}
+		
+		$item | Add-Member -MemberType NoteProperty -Name InstallDateObj -Value $parsedDate -Force
 	}
-	else
+	
+	# Filter to only those with a DisplayName
+	$Installed_recently = $Installed_Software | Where-Object { $null -ne $_.DisplayName }
+	
+	$installedSoftwareResults = foreach ($software in $Installed_recently)
 	{
-		$installedSoftwareResults += [pscustomobject]@{
-			'Installed Software' = 'Nothing found.';
-			'Software Version'   = $null;
-			'Publisher'		     = $null;
-			'Install Date'	     = $null;
-			Architecture		 = $null;
+		[pscustomobject]@{
+			'Installed Software' = $software.DisplayName
+			'Software Version'   = $software.DisplayVersion
+			'Publisher'		     = $software.Publisher
+			'Install Date'	     = if ($software.InstallDateObj)
+			{
+				$software.InstallDateObj.ToString('MM/dd/yyyy')
+			} elseif ($software.InstallDate)
+			{
+				$software.InstallDate
+			} else {
+				''
+			}
+			'Architecture'	     = $software.Architecture
+			'InstallDateObj'	 = $software.InstallDateObj # Used internally for sorting
 		}
 	}
+	
 	$installedSoftwareOutputDirectory = "$miscFolder`Installed-Software.txt"
-	($installedSoftwareResults | Sort-Object -Property @{ Expression = 'Installed Software'; Descending = $false }, @{ Expression = 'Publisher'; Descending = $false }, @{ Expression = 'Software Version'; Descending = $true } | Format-Table * -AutoSize) | Out-FileWithErrorHandling -FilePath $installedSoftwareOutputDirectory -Force -Width 4096
+	
+	$installedSoftwareResults |
+	Sort-Object -Property @{ Expression = 'InstallDateObj'; Descending = $true }, 'Installed Software', 'Publisher' |
+	Select-Object 'Installed Software',
+				  'Software Version',
+				  'Publisher',
+				  'Install Date',
+				  'Architecture' |
+	Format-Table -AutoSize |
+	Out-FileWithErrorHandling -FilePath $installedSoftwareOutputDirectory -Force -Width 4096
 }
 catch
 {

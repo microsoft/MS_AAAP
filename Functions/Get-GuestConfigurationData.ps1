@@ -55,6 +55,25 @@ foreach ($SourcePath in $SourcePaths)
 }
 
 # Get Extension Manager Logs
+$arcpolicyLogsPath = 'C:\ProgramData\GuestConfig\arc_policy_logs'
+if (Test-Path "$arcpolicyLogsPath")
+{
+	$arcPolicyLogsFolder = "$GuestConfigPath\arc_policy_logs"
+	Create-Folder -path $arcPolicyLogsFolder
+	
+	Write-Console -MessageSegments @(
+		@{ Text = "Copying "; ForegroundColor = "Green" },
+		@{ Text = "(most recent)"; ForegroundColor = "Gray" },
+		@{ Text = " files from: "; ForegroundColor = 'Green' }
+		@{ Text = "$extMgrLogsPath"; ForegroundColor = 'DarkCyan' }
+		@{ Text = " -> "; }
+		@{ Text = $arcPolicyLogsFolder; ForegroundColor = 'DarkCyan' }
+	)
+	
+	Copy-File -SourcePath $arcpolicyLogsPath -DestinationFolder $arcPolicyLogsFolder -Quiet
+}
+
+# Get Extension Manager Logs
 $extMgrLogsPath = 'C:\ProgramData\GuestConfig\ext_mgr_logs'
 if (Test-Path "$extMgrLogsPath")
 {

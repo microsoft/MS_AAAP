@@ -40,107 +40,59 @@ function Write-Console
 {
 	[CmdletBinding()]
 	param (
-		# =====================================================
-		# Parameters for the Write-Console Function
-		# =====================================================
-		
-		# Optional parameter for a simple text message
-		[Parameter(Mandatory = $false)]
+		[Parameter()]
 		[string]$Text,
-		# Optional parameter for an array of message segments (for colorized output)
-		[Parameter(Mandatory = $false)]
+		[Parameter()]
 		[Array]$MessageSegments,
-		# Optional foreground color for the timestamp text
 		[Parameter()]
-		[ValidateSet(
-					 'Black', 'DarkBlue', 'DarkGreen', 'DarkCyan', 'DarkRed', 'DarkMagenta',
-					 'DarkYellow', 'Gray', 'DarkGray', 'Cyan', 'Green', 'Red',
-					 'Magenta', 'Yellow', 'White', 'Default', 'Rainbow')]
+		[ValidateSet('Black', 'DarkBlue', 'DarkGreen', 'DarkCyan', 'DarkRed', 'DarkMagenta', 'DarkYellow', 'Gray', 'DarkGray', 'Cyan', 'Green', 'Red', 'Magenta', 'Yellow', 'White', 'Default', 'Rainbow')]
 		[string]$TimestampColor,
-		# Optional background color for the timestamp
 		[Parameter()]
-		[ValidateSet(
-					 'Black', 'DarkBlue', 'DarkGreen', 'DarkCyan', 'DarkRed', 'DarkMagenta',
-					 'DarkYellow', 'Gray', 'DarkGray', 'Cyan', 'Green', 'Red',
-					 'Magenta', 'Yellow', 'White')]
+		[ValidateSet('Black', 'DarkBlue', 'DarkGreen', 'DarkCyan', 'DarkRed', 'DarkMagenta', 'DarkYellow', 'Gray', 'DarkGray', 'Cyan', 'Green', 'Red', 'Magenta', 'Yellow', 'White')]
 		[string]$TimestampBackgroundColor,
-		# Optional foreground color for the text (used with -Text parameter)
 		[Parameter()]
-		[ValidateSet(
-					 'Black', 'DarkBlue', 'DarkGreen', 'DarkCyan', 'DarkRed', 'DarkMagenta',
-					 'DarkYellow', 'Gray', 'DarkGray', 'Cyan', 'Green', 'Red',
-					 'Magenta', 'Yellow', 'White', 'Default', 'Rainbow')]
+		[ValidateSet('Black', 'DarkBlue', 'DarkGreen', 'DarkCyan', 'DarkRed', 'DarkMagenta', 'DarkYellow', 'Gray', 'DarkGray', 'Cyan', 'Green', 'Red', 'Magenta', 'Yellow', 'White', 'Default', 'Rainbow')]
 		[string]$ForegroundColor,
-		# Optional background color for the text (used with -Text parameter)
 		[Parameter()]
-		[ValidateSet(
-					 'Black', 'DarkBlue', 'DarkGreen', 'DarkCyan', 'DarkRed', 'DarkMagenta',
-					 'DarkYellow', 'Gray', 'DarkGray', 'Cyan', 'Green', 'Red',
-					 'Magenta', 'Yellow', 'White')]
+		[ValidateSet('Black', 'DarkBlue', 'DarkGreen', 'DarkCyan', 'DarkRed', 'DarkMagenta', 'DarkYellow', 'Gray', 'DarkGray', 'Cyan', 'Green', 'Red', 'Magenta', 'Yellow', 'White')]
 		[string]$BackgroundColor,
-		# Optional foreground color for the separator text
 		[Parameter()]
-		[ValidateSet(
-					 'Black', 'DarkBlue', 'DarkGreen', 'DarkCyan', 'DarkRed', 'DarkMagenta',
-					 'DarkYellow', 'Gray', 'DarkGray', 'Cyan', 'Green', 'Red',
-					 'Magenta', 'Yellow', 'White', 'Default', 'Rainbow')]
+		[ValidateSet('Black', 'DarkBlue', 'DarkGreen', 'DarkCyan', 'DarkRed', 'DarkMagenta', 'DarkYellow', 'Gray', 'DarkGray', 'Cyan', 'Green', 'Red', 'Magenta', 'Yellow', 'White', 'Default', 'Rainbow')]
 		[string]$SeparatorColor,
-		# Switch to suppress the timestamp output
-		[Parameter(Mandatory = $false)]
+		[Parameter()]
 		[switch]$NoTimestamp,
-		# Switch to suppress the newline after the message
-		[Parameter(Mandatory = $false)]
+		[Parameter()]
 		[switch]$NoNewLine,
-		# Switch to enable Read-Host functionality
-		[Parameter(Mandatory = $false)]
+		[Parameter()]
 		[switch]$ReadHost
 	)
 	
-	# =====================================================
-	# Initialize Variables
-	# =====================================================
+	# -------------------------------------------------------------------------
+	#  Initialisation
+	# -------------------------------------------------------------------------
+	$SuppressHostOutput = ($VerbosePreference -eq 'Continue') # hide Write-Host when -Verbose
+	if (-not ($script:logBuffer)) { $script:logBuffer = "" }
+	if (-not ($script:verboseLineBuff)) { $script:verboseLineBuff = "" }
 	
-	# Initialize the separator as an empty string
-	$separator = ""
-	
-	# Set the log file path (adjust this path as needed)
 	$logFilePath = "$outputFolder\script-log.log"
-	
-	# Ensure the log directory exists
-	$logDirectory = [System.IO.Path]::GetDirectoryName($logFilePath)
-	if (!(Test-Path -Path $logDirectory -ErrorAction SilentlyContinue))
+	$logDirectory = [IO.Path]::GetDirectoryName($logFilePath)
+	if (!(Test-Path $logDirectory -ErrorAction SilentlyContinue))
 	{
-		# Create the directory if it doesn't exist
-		New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
+		New-Item -ItemType Directory -Force -Path $logDirectory | Out-Null
 	}
 	
-	# Initialize the script-scoped log buffer if not already initialized
-	if (-not ($script:logBuffer))
-	{
-		$script:logBuffer = ""
-	}
-	
-	# =====================================================
-	# Helper Functions
-	# =====================================================
-	
+	# -------------------------------------------------------------------------
+	#  Helper functions
+	# -------------------------------------------------------------------------
 	function Get-UniqueColorIndex
 	{
-		param (
-			[int]$Min = 0,
-			[int]$Max = 7
-		)
-		if (-not ($script:previousColorIndex -ne $null))
-		{
-			$script:previousColorIndex = -1
-		}
-		do
-		{
-			$newColorIndex = Get-Random -Minimum $Min -Maximum $Max
-		}
-		while ($newColorIndex -eq $script:previousColorIndex)
-		$script:previousColorIndex = $newColorIndex
-		return $newColorIndex
+		param ([int]$Min = 0,
+			[int]$Max = 7)
+		if (-not $script:previousColorIndex) { $script:previousColorIndex = -1 }
+		do { $new = Get-Random -Min $Min -Max $Max }
+		while ($new -eq $script:previousColorIndex)
+		$script:previousColorIndex = $new
+		return $new
 	}
 	
 	function Output-ColorizedText
@@ -151,51 +103,28 @@ function Write-Console
 			[string]$BackgroundColor,
 			[switch]$NoNewLine = $true
 		)
-		
+		if ($SuppressHostOutput) { return } # <-- NEW
 		if ($ForegroundColor -eq 'Rainbow')
 		{
-			$rainbowColors = @('Red', 'DarkYellow', 'Yellow', 'Green', 'Cyan', 'DarkMagenta', 'Magenta')
-			foreach ($char in $Text.ToCharArray())
+			$rainbow = @('Red', 'DarkYellow', 'Yellow', 'Green', 'Cyan', 'DarkMagenta', 'Magenta')
+			foreach ($c in $Text.ToCharArray())
 			{
-				$colorIndex = Get-UniqueColorIndex -Min 0 -Max 7
-				$currentColor = $rainbowColors[$colorIndex % $rainbowColors.Count]
-				$charParams = @{
-					'Object'		  = $char
-					'NoNewline'	      = $NoNewLine
-					'ForegroundColor' = $currentColor
-				}
-				if ($BackgroundColor -and $BackgroundColor -ne 'Default')
-				{
-					$charParams['BackgroundColor'] = $BackgroundColor
-				}
-				Write-Host @charParams
+				$col = $rainbow[(Get-UniqueColorIndex) % $rainbow.Count]
+				$p = @{ Object = $c; NoNewLine = $true; ForegroundColor = $col }
+				if ($BackgroundColor -and $BackgroundColor -ne 'Default') { $p.BackgroundColor = $BackgroundColor }
+				Write-Host @p
 			}
 		}
 		else
 		{
-			$writeHostParams = @{
-				'Object'    = $Text
-				'NoNewline' = $NoNewLine
-			}
-			if ($ForegroundColor -and $ForegroundColor -ne 'Default')
-			{
-				$writeHostParams['ForegroundColor'] = $ForegroundColor
-			}
-			if ($BackgroundColor -and $BackgroundColor -ne 'Default')
-			{
-				$writeHostParams['BackgroundColor'] = $BackgroundColor
-			}
-			Write-Host @writeHostParams
+			$p = @{ Object = $Text; NoNewLine = $true }
+			if ($ForegroundColor -and $ForegroundColor -ne 'Default') { $p.ForegroundColor = $ForegroundColor }
+			if ($BackgroundColor -and $BackgroundColor -ne 'Default') { $p.BackgroundColor = $BackgroundColor }
+			Write-Host @p
 		}
 	}
 	
-	function Append-ToLogBuffer
-	{
-		param (
-			[string]$Content
-		)
-		$script:logBuffer += $Content
-	}
+	function Append-ToLogBuffer { param ([string]$Content); $script:logBuffer += $Content }
 	
 	function Write-AndLog
 	{
@@ -205,179 +134,141 @@ function Write-Console
 			[string]$BackgroundColor,
 			[string]$Indent = ""
 		)
-		# Split the text by newline characters
 		$lines = $Text -split "(\r\n|\n|\r)"
-		$firstLine = $true
+		$first = $true
 		foreach ($line in $lines)
 		{
-			if (-not $firstLine)
+			if (-not $first)
 			{
-				# Add indentation for subsequent lines
-				Append-ToLogBuffer -Content "$Indent$line"
+				Append-ToLogBuffer "$Indent$line"
+				$script:verboseLineBuff += "$Indent$line"
 				Output-ColorizedText -Text "$Indent$line" -ForegroundColor $ForegroundColor -BackgroundColor $BackgroundColor
 			}
 			else
 			{
-				Append-ToLogBuffer -Content $line
+				Append-ToLogBuffer $line
+				$script:verboseLineBuff += $line
 				Output-ColorizedText -Text $line -ForegroundColor $ForegroundColor -BackgroundColor $BackgroundColor
-				$firstLine = $false
+				$first = $false
 			}
 		}
 	}
 	
-	# =====================================================
-	# Timestamp Handling Section
-	# =====================================================
-	
-	$indentation = ""
+	# -------------------------------------------------------------------------
+	#  Timestamp handling
+	# -------------------------------------------------------------------------
+	$indent = ""
 	if (-not $NoTimestamp)
 	{
-		$timestamp = (Time-Stamp).Trim()
-		Write-AndLog -Text $timestamp -ForegroundColor $TimestampColor -BackgroundColor $TimestampBackgroundColor
-		
-		# Separator Handling
-		$separator = " - "
-		Write-AndLog -Text $separator -ForegroundColor $SeparatorColor
-		
-		# Calculate indentation length
-		$indentation = " " * ($timestamp.Length + $separator.Length)
+		$ts = (Time-Stamp).Trim()
+		Write-AndLog -Text $ts -ForegroundColor $TimestampColor -BackgroundColor $TimestampBackgroundColor
+		Write-AndLog -Text " - " -ForegroundColor $SeparatorColor
+		$indent = " " * ($ts.Length + 3) # " - " = 3 chars
 	}
 	
-	# =====================================================
-	# Message Output Handling Section
-	# =====================================================
-	
+	# -------------------------------------------------------------------------
+	#  Main output logic
+	# -------------------------------------------------------------------------
 	if ($ReadHost)
 	{
-		# Build the prompt text
-		$promptText = ""
-		
+		# (unchanged except for Write-Host suppression)
+		$prompt = ""
 		if ($PSBoundParameters.ContainsKey('Text') -and $null -ne $Text)
 		{
-			$promptText = $Text + ": "
-			Write-AndLog -Text $promptText -ForegroundColor $ForegroundColor -BackgroundColor $BackgroundColor
+			$prompt = "$Text`: "
+			Write-AndLog -Text $prompt -ForegroundColor $ForegroundColor -BackgroundColor $BackgroundColor
 		}
 		elseif ($PSBoundParameters.ContainsKey('MessageSegments') -and $null -ne $MessageSegments)
 		{
-			foreach ($segment in $MessageSegments)
-			{
-				Write-AndLog -Text $segment.Text -ForegroundColor $segment.ForegroundColor -BackgroundColor $segment.BackgroundColor
-			}
+			foreach ($s in $MessageSegments) { Write-AndLog -Text $s.Text -ForegroundColor $s.ForegroundColor -BackgroundColor $s.BackgroundColor }
 			Write-AndLog -Text ": "
 		}
 		else
 		{
-			$warningMessage = "Error: Please provide either -Text or -MessageSegments for the prompt."
-			Append-ToLogBuffer -Content $warningMessage
-			Write-Warning $warningMessage
-			return
+			$msg = "Error: Please provide either -Text or -MessageSegments for the prompt."
+			Append-ToLogBuffer $msg; Write-Warning $msg; return
 		}
-		
-		# Read the user's input
-		$userInput = Read-Host
-		
-		# Append the user's input to the log buffer
-		Append-ToLogBuffer -Content $userInput
-		
-		if (-not $NoNewLine)
-		{
-			Write-Host ""
-		}
-		
-		# Write the accumulated log buffer to the log file
-		try
-		{
-			Add-Content -Path $logFilePath -Value $script:logBuffer
-		}
-		catch
-		{
-			Write-Warning "Failed to write to log file: $_"
-		}
-		
-		# Clear the log buffer
+		$input = Read-Host
+		Append-ToLogBuffer $input; $script:verboseLineBuff += $input
+		if (-not $NoNewLine -and -not $SuppressHostOutput) { Write-Host "" }
+		try { Add-Content -Path $logFilePath -Value $script:logBuffer }
+		catch { Write-Warning "Failed to write to log file: $_" }
 		$script:logBuffer = ""
-		
-		# Return the user's input
-		return $userInput
+		# flush verbose for read-host line
+		if ($SuppressHostOutput -and $script:verboseLineBuff)
+		{
+			$clean = ($script:verboseLineBuff -replace '\s{2,}', ' ').TrimEnd()
+			Write-Verbose $clean
+			$script:verboseLineBuff = ""
+		}
+		return $input
 	}
 	elseif ($PSBoundParameters.ContainsKey('Text') -and $null -ne $Text)
 	{
-		Write-AndLog -Text $Text -ForegroundColor $ForegroundColor -BackgroundColor $BackgroundColor -Indent $indentation
+		Write-AndLog -Text $Text -ForegroundColor $ForegroundColor -BackgroundColor $BackgroundColor -Indent $indent
 	}
 	elseif ($PSBoundParameters.ContainsKey('MessageSegments') -and $null -ne $MessageSegments)
 	{
-		# Combine all segments into one string to handle newlines properly
-		$combinedText = ""
-		$combinedSegments = @()
-		foreach ($segment in $MessageSegments)
+		$comboText = ""; $comboSeg = @()
+		foreach ($s in $MessageSegments)
 		{
-			$combinedText += $segment.Text
-			$combinedSegments += [PSCustomObject]@{
-				Text		    = $segment.Text
-				ForegroundColor = $segment.ForegroundColor
-				BackgroundColor = $segment.BackgroundColor
-			}
+			$comboText += $s.Text
+			$comboSeg += [pscustomobject]@{ Text = $s.Text; ForegroundColor = $s.ForegroundColor; BackgroundColor = $s.BackgroundColor }
 		}
-		
-		# Split the combined text by newline characters
-		$lines = $combinedText -split "(\r\n|\n|\r)"
-		$firstLine = $true
-		$segmentIndex = 0
+		$lines = $comboText -split "(\r\n|\n|\r)"
+		$first = $true; $idx = 0
 		foreach ($line in $lines)
 		{
-			if (-not $firstLine)
+			if (-not $first)
 			{
-				# Add indentation for subsequent lines
-				Write-Host -NoNewline $indentation
-				Append-ToLogBuffer -Content "$indentation"
+				if (-not $SuppressHostOutput) { Write-Host -NoNewline $indent }
+				Append-ToLogBuffer $indent; $script:verboseLineBuff += $indent
 			}
-			$lineSegments = $line
 			if ($line -ne "")
 			{
-				foreach ($segment in $combinedSegments)
+				foreach ($seg in $comboSeg)
 				{
-					$text = $segment.Text
-					if ($text.Length -le 0) { continue }
-					
-					$segmentText = $text.Substring(0, [Math]::Min($line.Length - $segmentIndex, $text.Length))
-					$segmentIndex += $segmentText.Length
-					
-					Write-AndLog -Text $segmentText -ForegroundColor $segment.ForegroundColor -BackgroundColor $segment.BackgroundColor -Indent ""
-					$segment.Text = $text.Substring($segmentText.Length)
+					$t = $seg.Text; if ($t.Length -le 0) { continue }
+					$take = $t.Substring(0, [Math]::Min($line.Length - $idx, $t.Length))
+					$idx += $take.Length
+					Write-AndLog -Text $take -ForegroundColor $seg.ForegroundColor -BackgroundColor $seg.BackgroundColor
+					$seg.Text = $t.Substring($take.Length)
 				}
 			}
 			else
 			{
-				Write-Host ""
-				Append-ToLogBuffer -Content "`n"
+				if (-not $SuppressHostOutput) { Write-Host "" }
+				Append-ToLogBuffer "`n"; $script:verboseLineBuff += "`n"
 			}
-			$firstLine = $false
-			$segmentIndex = 0
+			$first = $false; $idx = 0
 		}
 	}
 	else
 	{
-		$warningMessage = "Error: Please provide either -Text or -MessageSegments"
-		Append-ToLogBuffer -Content $warningMessage
-		Write-Warning $warningMessage
+		$msg = "Error: Please provide either -Text or -MessageSegments"
+		Append-ToLogBuffer $msg; Write-Warning $msg
 	}
 	
-	# =====================================================
-	# Newline Handling and Logging Section
-	# =====================================================
-	
+	# -------------------------------------------------------------------------
+	#  Trailing newline & log flush
+	# -------------------------------------------------------------------------
 	if (-not $NoNewLine)
 	{
-		Write-Host ""
-		try
-		{
-			Add-Content -Path $logFilePath -Value $script:logBuffer
-		}
-		catch
-		{
-			Write-Warning "Failed to write to log file: $_"
-		}
-		$script:logBuffer = ""
+		if (-not $SuppressHostOutput) { Write-Host "" }
+		Append-ToLogBuffer "`n"; $script:verboseLineBuff += "`n"
+	}
+	try { Add-Content -Path $logFilePath -Value $script:logBuffer }
+	catch { Write-Warning "Failed to write to log file: $_" }
+	$script:logBuffer = ""
+	
+	# -------------------------------------------------------------------------
+	#  Final verbose flush
+	# -------------------------------------------------------------------------
+	if ($SuppressHostOutput -and $script:verboseLineBuff)
+	{
+		$clean = ($script:verboseLineBuff -replace '\s{2,}', ' ').TrimEnd()
+		Write-Verbose $clean
+		$script:verboseLineBuff = ""
 	}
 }
 
@@ -1016,64 +907,93 @@ TLS 1.0: $($analysis.Summary.TLS10Support) out of $($analysis.Summary.TotalEndpo
 #endregion SSL Configuration Testing Functions
 
 
-function Create-Folder($path) # Create the entire Folder path if missing
+<#  
+    .SYNOPSIS
+        Ensures a directory path exists (recursively) and logs progress through
+        your custom Write-Console helper.
+
+    .NOTES
+        • Requires Write-Console to be defined elsewhere in the script.
+        • Halts on any unexpected error (`$ErrorActionPreference = 'Stop'`).
+        • Uses .NET's [System.IO.Directory]::CreateDirectory() for atomic,
+          idempotent creation of the whole hierarchy.
+#>
+
+function Create-Folder
 {
-	Write-Verbose "Resolving the path: $path"
-	$path = [System.IO.Path]::GetFullPath($path)
-	$parentPath = Split-Path $path -Parent
-	$showMessage = -NOT (Test-Path $parentPath) # Only show message if parent doesn't exist
+	[CmdletBinding()]
+	param (
+		[Parameter(Mandatory)]
+		[string]$Path
+	)
 	
-	foreach ($SubFolder in $path.split('\'))
+	#--- User-editables / defaults ------------------------------------------------
+	#$ErrorActionPreference = 'Stop'
+	
+	#--- Resolve absolute path ----------------------------------------------------
+	Write-Verbose "Resolving the path`:` $Path"
+	$FullPath = [System.IO.Path]::GetFullPath($Path)
+	
+	try
 	{
-		$foldPath += ($SubFolder + '\')
-		
-		try
+		if (-not (Test-Path -LiteralPath $FullPath))
 		{
-			if (-NOT (Test-Path $foldPath))
-			{
-				if ($showMessage)
-				{
-					Write-Console -MessageSegments @(
-						@{ Text = "Creating folder structure: "; ForegroundColor = "DarkYellow" },
-						@{ Text = "$path"; ForegroundColor = "DarkCyan" }
-					)
-					$showMessage = $false # Only show message once
-				}
-				Write-Verbose "Creating the directory: $path"
-				New-Item -ItemType Directory -Path $foldPath -ErrorAction Stop | Out-Null
-			}
+			# One-time, colorised status line
+			Write-Console -MessageSegments @(
+				@{ Text = "Creating folder structure`:` "; ForegroundColor = "DarkYellow" }
+				@{ Text = "$FullPath"; ForegroundColor = "DarkCyan" }
+			)
+			
+			# .NET call creates every missing segment in one go, safely
+			[System.IO.Directory]::CreateDirectory($FullPath) | Out-Null
 		}
-		catch
+		else
 		{
-			Write-Console -Text "Unable to create directory - $path`: $_" -ForegroundColor Red -BackgroundColor Black
+			Write-Verbose "Directory already exists`:` $FullPath"
 		}
+	}
+	catch
+	{
+		Write-Console -MessageSegments @(
+			@{ Text = "Unable to create directory - "; ForegroundColor = "Red" }
+			@{ Text = "$FullPath"; ForegroundColor = "DarkCyan" }
+			@{ Text = " `: $_"; ForegroundColor = "Red" }
+		)
+		throw # Re-throw so upstream code can handle / log as needed
 	}
 }
 
+
 <#
-	.SYNOPSIS
-		Function to assist with copying files and directories
-	
-	.DESCRIPTION
-		Assists with copying files while outputting what its doing to the console. Creates directories if needed for nested items.
-	
-	.PARAMETER SourcePath
-		The source path to copy.
-	
-	.PARAMETER DestinationFolder
-		The destination path to copy.
-	
-	.PARAMETER changeFileName
-		Add date to filename in output.
-	
-	.PARAMETER Quiet
-		Do not output anything to the console.
-	
-	.EXAMPLE
-		PS C:\> Copy-File -SourcePath $value1 -DestinationFolder 'Value2'
-	
-	.NOTES
-		Additional information about the function.
+    .SYNOPSIS
+        Function to assist with copying files and directories
+
+    .DESCRIPTION
+        Assists with copying files while outputting what it's doing to the console. 
+        Creates directories if needed for nested items.
+
+    .PARAMETER SourcePath
+        The source path(s) to copy.
+
+    .PARAMETER DestinationFolder
+        The destination path to copy to.
+
+    .PARAMETER changeFileName
+        Add date to filename in output.
+
+    .PARAMETER Quiet
+        Do not output anything to the console.
+
+    .PARAMETER MostRecentFileCount
+        If set, only the most recent N files are copied (not yet implemented in this version).
+
+    .EXAMPLE
+        PS C:\> Copy-File -SourcePath $value1 -DestinationFolder 'Value2'
+
+    .NOTES
+        Author: Blake Drumm (blakedrumm@microsoft.com)
+        Version: 1.1
+		Date modified: April 26th, 2025
 #>
 function Copy-File
 {
@@ -1091,17 +1011,14 @@ function Copy-File
 		[int]$MostRecentFileCount
 	)
 	
-	# Handle destination path
 	$DestinationFolder = [System.IO.Path]::GetFullPath($DestinationFolder)
 	
-	# If destination ends with a file name (contains extension), use its directory as the destination folder
 	if ([System.IO.Path]::HasExtension($DestinationFolder))
 	{
 		$DestinationFile = $DestinationFolder
 		$DestinationFolder = [System.IO.Path]::GetDirectoryName($DestinationFile)
 		Create-Folder -path $DestinationFolder
 		
-		# Handle single file copy with specific destination name
 		if ($SourcePath.Count -eq 1 -and (Test-Path $SourcePath[0] -PathType Leaf))
 		{
 			try
@@ -1115,8 +1032,8 @@ function Copy-File
 				{
 					Write-Console -MessageSegments @(
 						@{ Text = "Copying file: "; ForegroundColor = 'Green' },
-						@{ Text = $($SourcePath[0]); ForegroundColor = 'DarkCyan' }
-						@{ Text = " -> " }
+						@{ Text = $($SourcePath[0]); ForegroundColor = 'DarkCyan' },
+						@{ Text = " -> " },
 						@{ Text = $DestinationFile; ForegroundColor = 'DarkCyan' }
 					)
 				}
@@ -1139,23 +1056,15 @@ function Copy-File
 	
 	foreach ($Source in $SourcePath)
 	{
-		# Handle wildcards by resolving them to actual file paths
 		$resolvedPaths = @()
 		try
 		{
 			if ($Source -match '\*')
 			{
-				# Get the parent path and file pattern
 				$parentPath = Split-Path $Source
 				$pattern = Split-Path $Source -Leaf
+				if ([string]::IsNullOrEmpty($parentPath)) { $parentPath = '.' }
 				
-				# If parentPath is empty, use current directory
-				if ([string]::IsNullOrEmpty($parentPath))
-				{
-					$parentPath = '.'
-				}
-				
-				# Resolve the wildcard pattern
 				$resolvedPaths = Get-ChildItem -Path $parentPath -Filter $pattern | Select-Object -ExpandProperty FullName
 				
 				if ($resolvedPaths.Count -eq 0)
@@ -1204,7 +1113,6 @@ function Copy-File
 					
 					if ($SourceItem.PSIsContainer)
 					{
-						# For directories, create the destination directory including the source folder name
 						$lastFolderName = Split-Path $resolvedPath -Leaf
 						$DestinationDir = Join-Path $DestinationFolder $lastFolderName
 						
@@ -1214,14 +1122,11 @@ function Copy-File
 							$DestinationDir = "$DestinationDir_$DateTime"
 						}
 						
-						# Create the destination directory
 						Create-Folder -path $DestinationDir
 						
 						try
 						{
-							# Copy the entire directory structure
 							Copy-Item -Path $resolvedPath -Destination $DestinationFolder -Recurse -Force -ErrorAction Stop
-							
 							if ($Quiet)
 							{
 								Write-Verbose "Copying contents of directory: $resolvedPath -> $DestinationDir"
@@ -1230,8 +1135,8 @@ function Copy-File
 							{
 								Write-Console -MessageSegments @(
 									@{ Text = "Copying contents of directory: "; ForegroundColor = 'Green' },
-									@{ Text = $resolvedPath; ForegroundColor = 'DarkCyan' }
-									@{ Text = " -> " }
+									@{ Text = $resolvedPath; ForegroundColor = 'DarkCyan' },
+									@{ Text = " -> " },
 									@{ Text = $DestinationDir; ForegroundColor = 'DarkCyan' }
 								)
 							}
@@ -1250,7 +1155,20 @@ function Copy-File
 					}
 					else
 					{
-						# Handle single file copies
+						# Double-check if the source file still exists
+						if (-not (Test-Path $resolvedPath -PathType Leaf))
+						{
+							if ($Quiet)
+							{
+								Write-Verbose "File not found anymore (likely rotated): $resolvedPath"
+							}
+							else
+							{
+								Write-Console -Text "File not found anymore (likely rotated): $resolvedPath" -ForegroundColor Gray
+							}
+							continue
+						}
+						
 						$FileName = if ($changeFileName)
 						{
 							$DateTime = (Get-Date).ToString('yyyy-MMM-dd_HH-mm')
@@ -1265,10 +1183,13 @@ function Copy-File
 						
 						$DestinationFile = Join-Path -Path $DestinationFolder -ChildPath $FileName
 						
+						# Ensure the destination directory for the file exists
+						$DestinationDirForFile = [System.IO.Path]::GetDirectoryName($DestinationFile)
+						Create-Folder -path $DestinationDirForFile
+						
 						try
 						{
 							Copy-Item -Path $resolvedPath -Destination $DestinationFile -Force -ErrorAction Stop
-							
 							if ($Quiet)
 							{
 								Write-Verbose "Copying file $resolvedPath -> $DestinationFile"
@@ -1328,6 +1249,7 @@ function Copy-File
 		}
 	}
 }
+
 
 function Try-Cmdlet($command, $outputfileName)
 {
@@ -1562,3 +1484,113 @@ function Get-CustomChildItem
 	}
 }
 #endregion Custom Get Child Item
+
+#region Format Json
+function Format-JsonString
+{
+	[CmdletBinding()]
+	param (
+		[Parameter(Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)]
+		[string]$JsonString,
+		[Parameter()]
+		[string]$OutputFilePath
+	)
+	
+	begin
+	{
+		$ErrorActionPreference = 'Stop'
+	}
+	
+	process
+	{
+		try
+		{
+			# Try to parse the JSON
+			$parsed = $JsonString | ConvertFrom-Json
+			
+			# Re-convert it back to a formatted JSON string
+			$formattedJson = $parsed | ConvertTo-Json -Depth 100 -Compress:$false
+			
+			if ($OutputFilePath)
+			{
+				# Write to a file if path is provided
+				$formattedJson | Out-FileWithErrorHandling -FilePath $OutputFilePath -Encoding UTF8 -Force -Append
+				Write-Host "Formatted JSON was successfully saved to '$OutputFilePath'" -ForegroundColor Green
+			}
+			else
+			{
+				# Otherwise, output to console
+				return $formattedJson
+			}
+		}
+		catch
+		{
+			Write-Warning "Input string is not valid JSON: $_"
+		}
+	}
+}
+<#
+$rawJson = @'
+[{"version":"1","timestampUTC":"2024-04-26T23:09:43.6300812Z","status":{"name":"Azure Patch Management","operation":"NoOperation","status":"success","code":0,"formattedMessage":{"lang":"en-US","message":"\"[].\""},"substatus":[]}}]
+'@
+
+Format-JsonString -JsonString $rawJson
+#>
+#endregion Format Json
+
+#region Check if AzureVM or Arc Machine
+function Check-AzureVMorArcMachine
+{
+<#
+.SYNOPSIS
+    Detects if the machine is a native Azure VM, an Azure Arc Connected Machine, or neither.
+
+.DESCRIPTION
+    - Checks for presence of Azure VM Guest Agent (WindowsAzureGuestAgent, WaAppAgent.exe)
+    - Checks for presence of Azure Arc Connected Machine Agent (azcmagent.exe)
+    - Outputs the type of connection: AzureVM, AzureArc, or NotDetected
+
+.NOTES
+    Author: Blake Drumm
+    Date: 2025-04-26
+#>
+	
+	# Define agent file paths
+	$AzureVMGuestAgentPath = 'C:\WindowsAzure\*\WaAppAgent.exe'
+	$AzureArcAgentPath = 'C:\Program Files\AzureConnectedMachineAgent\azcmagent.exe'
+	
+	# Initialize detection variables
+	$IsAzureVM = $false
+	$IsAzureArc = $false
+	
+	# Check for Azure VM Guest Agent
+	if (Test-Path $AzureVMGuestAgentPath)
+	{
+		$IsAzureVM = $true
+	}
+	
+	# Check for Azure Arc Agent
+	if (Test-Path $AzureArcAgentPath)
+	{
+		$IsAzureArc = $true
+	}
+	
+	# Determine the machine type
+	if ($IsAzureVM -and -not $IsAzureArc)
+	{
+		Write-Output "Azure VM (Native IaaS)"
+	}
+	elseif ($IsAzureArc -and -not $IsAzureVM)
+	{
+		Write-Output "Azure Arc Connected Machine"
+	}
+	elseif ($IsAzureArc -and $IsAzureVM)
+	{
+		Write-Output "Hybrid - Both Azure VM and Azure Arc connected"
+	}
+	else
+	{
+		Write-Output "Not Detected (neither Azure VM or Azure Arc detected)"
+	}
+}
+#endregion Check if AzureVM or Arc Machine

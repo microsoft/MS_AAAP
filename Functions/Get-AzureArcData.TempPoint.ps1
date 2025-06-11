@@ -197,6 +197,8 @@ if ($azcmagentPath)
 	{
 		Write-Console -Text "Unable to locate the Azure Arc executable" -ForegroundColor Yellow
 		Create-Folder $arcFolder
+		Copy-File "C:\WindowsAzure\Logs\WaAppAgent.log" "$arcFolder\VMLogs"
+		Copy-File "C:\WindowsAzure\Logs\TransparentInstaller.log" "$arcFolder\VMLogs"
 	}
 	
 	#region Get Azure Arc Config and Logs

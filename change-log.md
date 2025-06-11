@@ -1,12 +1,35 @@
-﻿# Script Version: v1.6
+﻿# Script Version: v1.7
 
-***Last Updated: March 24th, 2024 @ 11:53 AM (EST)***
+***Last Updated: June 11th, 2025 @ 1:07 PM (EST)***
+
+## Change Log
+
+#### Changes
+- [@blakedrumm] Changed directory from `C:\MicrosoftSupportLogs` to `C:\MS_AAAP`.
+- [@blakedrumm] Add shortname **AutomaticUpdates** to **AutomaticUpdatesWuApp** in `Update_Info.txt`.
+- [@blakedrumm] Added `// Note without NoAutoUpdate=1 with newer OS can result in updates installing automatically` and `// this is the option we recommend to prevent system from auto installing updates` to REG-WindowsUpdate.txt.
+- [@blakedrumm] Added **Microsoft.Update.ServiceManager** - COM Object checking output to Windows Update folder.
+- [@blakedrumm] Gathering Hybrid Worker Service (HybridWorkerService) and AutoAssessPatchService.
+- [@blakedrumm] Added `HKLM:\SOFTWARE\Microsoft\Azure\HybridWorker` and `HKLM:\SOFTWARE\Microsoft\HybridRunbookWorkerV2` registry path to output.
+- [@blakedrumm] Fixed `WindowsUpdate.log` gathering / output.
+- [@blakedrumm] Azure VM folder: Windows Azure Log, WAP Agent Log. `C:\WindowsAzure\Logs\WaAppAgent.log`.
+- [@blakedrumm] Gathering Windows Update Active Hours information.
+- [@blakedrumm] Added Pretty *.status `..\Packages\Plugins\Microsoft.CPlat.Core.WindowsPatchExtension\1.5.71\Status\69.status`
+- [@blakedrumm] Added new parameter to script: `-SkipNetworkConnectivityCheck`
+
+---
+&nbsp; \
+&nbsp;
+
+# Script Version: v1.6
+
+***Last Updated: March 24th, 2025 @ 11:53 AM (EST)***
 
 ## Change Log
 
 #### Changes
 - [@blakedrumm] Fixed issue with `azcmagent check` command when the location is missing in the HIMDS metadata.
-- [@blakedrumm] A big thank you to **Francisco Carranza** for reporting this! Fixed issue with wrong URL being presented in the output when copying the script directly from GitHub: `https://aka.ms/MicrosoftSupportScripts` -> `https://aka.ms/MicrosoftSupportLogs`
+- [@blakedrumm] A big thank you to Francisco Carranza for reporting this! Fixed issue with wrong URL being presented in the output when copying the script directly from GitHub: `https://aka.ms/MicrosoftSupportScripts` -> `https://aka.ms/MicrosoftSupportLogs`
 
 ---
 &nbsp; \
@@ -14,7 +37,7 @@
 
 # Script Version: v1.5
 
-***Last Updated: March 18th, 2024 @ 9:48 AM (EST)***
+***Last Updated: March 18th, 2025 @ 9:48 AM (EST)***
 
 ## Change Log
 
@@ -27,7 +50,7 @@
 
 # Script Version: v1.4
 
-***Last Updated: March 13th, 2024 @ 11:29 AM (EST)***
+***Last Updated: March 13th, 2025 @ 11:29 AM (EST)***
 
 ## Change Log
 

@@ -3,7 +3,6 @@ Create-Folder $WindowsUpdateFolder
 
 if ($GetUpdateInfo)
 {
-	Copy-File -SourcePath "$env:windir\WindowsUpdate.log" -Destination $WindowsUpdateFolder
 	$UpdateInfoPath = "$outputFolder`Update_Info.txt"
 	$UpdateInfo = $UpdateInfoPath
 	
@@ -84,8 +83,12 @@ Data collected at UTC: $((Time-Stamp -UniversalTime)) / Local Time: $(Time-Stamp
 	Sort-Object LastDeploymentChangeTime, IsInstalled, Title -Descending |
 	Format-Table @{ Label = 'ReleaseDate'; Expression = { ($_.LastDeploymentChangeTime).ToShortDateString() } },
 				 Title,
-				 @{ Label = 'InstallationStatus'; Expression = { if ($_.IsInstalled) { "Installed" }
-			else { "Not Installed" } } },
+				 @{
+		Label = 'InstallationStatus'; Expression = {
+			if ($_.IsInstalled) { "Installed" }
+			else { "Not Installed" }
+		}
+	},
 				 @{
 		Label = 'RebootStatus'; Expression = {
 			if ($_.RebootRequired)
@@ -132,7 +135,7 @@ NOTE: The Windows Update Service is used to install updates, however it is the C
 
 ClientApplicationID                             Process Initiating the Request to the Windows Update Service
 ===================                             =================================================================================
-AutomaticUpdatesWuApp                           Windows Update Application - Component responsible for automatic update checks and installations in Windows Update service
+AutomaticUpdatesWuApp (AutomaticUpdates)        Windows Update Application - Component responsible for automatic update checks and installations in Windows Update service
 Azure VM Guest Patching                         Azure VM Guest Patching feature initiating updates on Azure virtual machines.
 CcmExec                                         Configuration Manager (SCCM) Client Agent Host service (Microsoft Endpoint Configuration Manager client), responsible for initiating software update scans and installation.
 ITSecMgmt                                       Windows Security (Defender) - Initiates security updates and scans
@@ -172,7 +175,7 @@ Two most recent Microsoft Defender updates:
 	#region Client Application ID's Available to System
 	@"
 ============================================================================================================================================================================================
-Available Client Application ID's:
+List of available Client Application ID's:
 
 "@ | Out-FileWithErrorHandling -FilePath $UpdateInfo -Append -Width 4096
 	# Create update session and searcher
@@ -193,7 +196,7 @@ Available Client Application ID's:
 	
 	# Display the list
 	$clientAppIds | ForEach-Object {
-		"ClientApplicationID: $_ (Source process for update operations)"
+		"$_ (Source process for update operations)"
 	} | Out-FileWithErrorHandling -FilePath $UpdateInfo -Append -Width 4096
 	#endregion Client Application ID's Available to System
 	
@@ -201,7 +204,7 @@ Available Client Application ID's:
 	Copy-File -Quiet -SourcePath $UpdateInfoPath -DestinationPath $WindowsUpdateFolder
 	
 	#region Windows Update Settings
-	$WinUpdateSettings = "$WindowsUpdateFolder\Windows_Update_Settings.txt"
+	$WinUpdateSettings = "$WindowsUpdateFolder\Microsoft.Update.AutoUpdate-COMObject.txt"
 	
 	$AutoUpdateNotificationLevels = @{
 		0 = "Not configured";
@@ -265,13 +268,13 @@ AUOptions (REG_DWORD):
 
 2: Notify of download and installation.
 
-3: Automatically download and notify of installation.
+3: Automatically download and notify of installation. // Note without NoAutoUpdate=1 with newer OS can result in updates installing automatically
 
 4: Automatically download and scheduled installation.
 
 5: Allow local admin to select the configuration mode. This option isn't available for Windows 10 or later versions.
 
-7: Notify for install and notify for restart. (Windows Server 2016 and later only)
+7: Notify for install and notify for restart. (Windows Server 2016 and later only) // this is the option we recommend to prevent system from auto installing updates
 
 ---------------------------------
 
@@ -313,12 +316,12 @@ NoAutoRebootWithLoggedOnUsers (REG_DWORD):
 
 0 (false) or 1 (true). If set to 1, Automatic Updates doesn't automatically restart a computer while users are logged on.
 "@ | Out-FileWithErrorHandling -Force -Append -FilePath $RegoutputFile
-    }
-    else
-    {
-        "'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate' Not present" | Set-Content -Path $RegoutputFile
-    }
-    Copy-Item -Path $RegoutputFile -Destination $WindowsUpdateFolder | Out-Null
+	}
+	else
+	{
+		"'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate' Not present" | Set-Content -Path $RegoutputFile
+	}
+	Copy-Item -Path $RegoutputFile -Destination $WindowsUpdateFolder | Out-Null
 	#endregion Windows Update Registry
 	
 	#region Copy CBS Logs
@@ -328,4 +331,285 @@ NoAutoRebootWithLoggedOnUsers (REG_DWORD):
 	#region Copy DISM Logs
 	Copy-File -SourcePath "C:\windows\logs\DISM\*.log" -DestinationPath "$WindowsUpdateFolder\DISM" -MostRecentFileCount 10
 	#endregion Copy DISM Logs
+	
+	#region Copy Windows Update Logs
+	function Get-WindowsUpdateLogs
+	{
+<#
+.SYNOPSIS
+    Collect Windows Update logs from supported Windows Server OSs
+    for Azure Update Manager diagnostics.
+
+.DESCRIPTION
+    • Skips workstation editions (ProductType = 1).
+    • Server 2012 / 2012 R2 → copies classic %windir%\WindowsUpdate.log
+    • Server 2016+        → copies ETLs and (optionally) merges them
+      with Get‑WindowsUpdateLog (requires symbol access).
+
+.NOTES
+    - Pure PowerShell (no external EXEs except native REG).
+    - Stops on error (‑ErrorActionPreference = 'Stop').
+    - All user‑tunable settings are in the PARAMETERS section.
+#>
+		[CmdletBinding(SupportsShouldProcess = $true)]
+		param (
+			[Parameter(Mandatory = $true)]
+			[string]$WindowsUpdateFolder,
+			[switch]$MergeEtlToText
+		)
+		
+		# - Strict failure
+		$ErrorActionPreference = 'Stop'
+		
+		# - Ensure output folder exists
+		if (-not (Test-Path $WindowsUpdateFolder))
+		{
+			Write-Console "Creating output folder: $WindowsUpdateFolder" -ForegroundColor Yellow
+			if ($PSCmdlet.ShouldProcess($WindowsUpdateFolder, 'Create directory'))
+			{
+				New-Item -Path $WindowsUpdateFolder -ItemType Directory -Force | Out-Null
+			}
+		}
+		
+		# - OS info
+		$os = Get-CimInstance -ClassName Win32_OperatingSystem
+		$currentVersion = [version]$os.Version
+		$targetVersion = [version]'10.0'
+		
+		# - Skip workstations
+		if ($os.ProductType -eq 1)
+		{
+			Write-Console "Workstation OS detected - skipping Windows Update log collection." -ForegroundColor Yellow
+		}
+		else
+		{
+			Write-Console "Gathering Windows Update logs…" -ForegroundColor Cyan
+			
+			# - Paths
+			$wuTextDest = Join-Path $WindowsUpdateFolder 'WindowsUpdate.log'
+			$wuEtlDest = Join-Path $WindowsUpdateFolder 'WindowsUpdate_ETL'
+			
+			try
+			{
+				if ($currentVersion -lt $targetVersion)
+				{
+					# Server 2012 / 2012 R2
+					Write-Console "OS $currentVersion detected - using classic log copy." -ForegroundColor Green
+					$classicLog = Join-Path $env:SystemRoot 'WindowsUpdate.log'
+					
+					if (Test-Path $classicLog)
+					{
+						Write-Console "Copying $classicLog to $wuTextDest" -ForegroundColor Green
+						Copy-Item -Path $classicLog -Destination $wuTextDest -Force
+					}
+					else
+					{
+						Write-Console "Log not found at $classicLog; writing placeholder." -ForegroundColor Yellow
+						"'$classicLog' not present" | Out-File -FilePath $wuTextDest -Force -Encoding UTF8
+					}
+				}
+				else
+				{
+					# Server 2016+
+					Write-Console "OS $currentVersion detected - saving ETL traces." -ForegroundColor Green
+					
+					if ($PSCmdlet.ShouldProcess($wuEtlDest, 'Ensure ETL folder'))
+					{
+						New-Item -Path $wuEtlDest -ItemType Directory -Force | Out-Null
+					}
+					
+					$firstItem = $true
+					Get-ChildItem -Path "$env:SystemRoot\Logs\WindowsUpdate\*.etl" -ErrorAction SilentlyContinue |
+					ForEach-Object {
+						if ($firstItem)
+						{
+							Write-Console -MessageSegments @(
+								(New-MessageSegment -Text "Copying ETL: " -ForegroundColor "Green")
+								(New-MessageSegment -Text "$($_.Name)" -ForegroundColor "Gray")
+							) -NoNewLine
+							$firstItem = $false
+						}
+						else
+						{
+							Write-Console -Text ", $($_.Name)" -ForegroundColor Gray -NoNewLine -NoTimestamp
+						}
+						Copy-Item -Path $_.FullName -Destination $wuEtlDest -Force -ErrorAction SilentlyContinue
+					}
+					Write-Console " " -NoTimestamp
+					
+					if ($MergeEtlToText)
+					{
+						Write-Console "Merging ETL traces into text log." -ForegroundColor Green
+						Push-Location $wuEtlDest
+						Get-WindowsUpdateLog -LogPath $wuTextDest
+						Pop-Location
+					}
+					else
+					{
+						Write-Console "Merge skipped - MergeEtlToText is $MergeEtlToText." -ForegroundColor Yellow
+					}
+				}
+				
+				# - Additional logs (CBS, DISM)
+				$extraLogs = @(
+					@{ Name = 'CBS'; Path = "$env:SystemRoot\Logs\CBS\*.log" },
+					@{ Name = 'DISM'; Path = "$env:SystemRoot\Logs\DISM\dism.log" }
+				)
+				
+				foreach ($log in $extraLogs)
+				{
+					$srcFolder = Split-Path $log.Path -Parent
+					$destFolder = Join-Path $WindowsUpdateFolder $log.Name
+					
+					if (Test-Path $srcFolder)
+					{
+						Write-Console "Collecting $($log.Name) logs…" -ForegroundColor Cyan
+						New-Item -Path $destFolder -ItemType Directory -Force | Out-Null
+						
+						Get-ChildItem -Path $log.Path -ErrorAction SilentlyContinue |
+						ForEach-Object {
+							Write-Console "Copying $($_.Name)" -ForegroundColor Green
+							Copy-Item -Path $_.FullName -Destination $destFolder -Force -ErrorAction SilentlyContinue
+						}
+					}
+					else
+					{
+						Write-Console "Source path not found: $srcFolder - skipping $($log.Name)." -ForegroundColor Yellow
+					}
+				}
+				
+				Write-Console "Windows Update log collection complete." -ForegroundColor Cyan
+			}
+			catch
+			{
+				Write-Console "An unexpected error occurred: $_" -ForegroundColor Red
+				throw
+			}
+		}
+	}
+	Get-WindowsUpdateLogs -MergeEtlToText:$true -WindowsUpdateFolder $WindowsUpdateFolder
+	
+	#endregion Copy Windows Update Logs
+	
+	#region Check Windows Update Service Manager COM Object
+<#
+.SYNOPSIS
+    Attempts to instantiate and query the Microsoft.Update.ServiceManager COM object.
+
+.DESCRIPTION
+    The Microsoft.Update.ServiceManager COM object provides access to the list of update services 
+    registered on the system (e.g., Windows Update, Microsoft Update, WSUS).
+
+    This is crucial when troubleshooting Azure Update Manager issues because:
+    
+    • Azure Update Manager depends on the Windows Update infrastructure to detect and apply updates.
+    • If third-party or WSUS update services are registered but misconfigured, assessments or patching operations can fail.
+    • Missing or inaccessible update services may indicate WU corruption or misregistration.
+
+    This check helps validate:
+    1. Whether the Microsoft.Update.ServiceManager COM object is functional (not blocked/corrupted).
+    2. What update sources are registered on the machine.
+    3. Whether expected services like 'Windows Update' or 'Microsoft Update' are available.
+
+    Common issues this can help uncover:
+    • COM errors caused by missing DLL registrations (e.g., wuapi.dll)
+    • Overridden or disabled update services
+    • Conflicts between WSUS and Microsoft Update configurations
+
+    Outputs:
+    - Successful output goes to: <Microsoft.Update.ServiceManager-COMObject.txt>
+    - Any COM instantiation errors go to: <Microsoft.Update.ServiceManager-COMObject-ERROR.txt>
+#>
+	try
+	{
+		Write-Console "Checking Microsoft Update Service Manager - COM Object" -ForegroundColor Green
+		$mgr = New-Object -ComObject Microsoft.Update.ServiceManager
+		$mgr.Services | Out-FileWithErrorHandling -Force -Append -FilePath "$WindowsUpdateFolder\Microsoft.Update.ServiceManager-COMObject.txt"
+		@"
+===========================================================================
+
+List of known ServiceIDs:
+        Windows Update                : 9482f4b4-e343-43b6-b170-9a65bc822c77
+        Microsoft Update              : 7971f918-a847-4430-9279-4a52d1efe18d
+        Windows Store                 : 117cab2d-82b1-4b5a-a08c-4d62dbee7782
+        Windows Server Update Service : 3da21691-e39d-4da6-8a4b-b43877bcb1b7
+
+"@ | Out-FileWithErrorHandling -Force -Append -FilePath "$WindowsUpdateFolder\Microsoft.Update.ServiceManager-COMObject.txt"
+	}
+	catch
+	{
+		Write-Console "Experienced error while checking Microsoft Update Service Manager - COM Object: $_" -ForegroundColor Red
+		Write-Output "COM error: $_" | Out-FileWithErrorHandling -Force -Append -FilePath "$WindowsUpdateFolder\Microsoft.Update.ServiceManager-COMObject-ERROR.txt"
+	}
+	#endregion Check Windows Update Service Manager COM Object
+	
+	#region Get Active Hours Information
+	# Variables
+	$ActiveHoursRegPath = 'HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings'
+	
+	# Function to convert 24-hour integer to 12-hour format with AM/PM
+	function Convert-To12HourFormat
+	{
+		param (
+			[Parameter(Mandatory)]
+			[int]$Hour
+		)
+		
+		if ($Hour -eq 0)
+		{
+			return "12:00 AM"
+		}
+		elseif ($Hour -lt 12)
+		{
+			return "{0}:00 AM" -f $Hour
+		}
+		elseif ($Hour -eq 12)
+		{
+			return "12:00 PM"
+		}
+		else
+		{
+			return "{0}:00 PM" -f ($Hour - 12)
+		}
+	}
+	
+	# Retrieve Local Time Zone
+	$TimeZone = [System.TimeZoneInfo]::Local.DisplayName
+	
+	$WinUpdateActiveHours = "$WindowsUpdateFolder\WindowsUpdate-ActiveHours.txt"
+	
+	# Check if the registry path exists
+	if (Test-Path -Path $ActiveHoursRegPath)
+	{
+		# Get the Active Hours information
+		$ActiveHours = Get-ItemProperty -Path $ActiveHoursRegPath | Select-Object -Property ActiveHoursStart, ActiveHoursEnd
+		
+		# Display results
+		if ($ActiveHours)
+		{
+			$StartFormatted = Convert-To12HourFormat -Hour $ActiveHours.ActiveHoursStart
+			$EndFormatted = Convert-To12HourFormat -Hour $ActiveHours.ActiveHoursEnd
+			
+			$outputVariable = @"
+Active Hours Start: $StartFormatted
+Active Hours End  : $EndFormatted
+Local Time Zone   : $TimeZone
+"@
+			Write-Console -Verbose -Text $outputVariable
+			$outputVariable | Out-FileWithErrorHandling -FilePath $WinUpdateActiveHours -Append
+		}
+		else
+		{
+			$outputVariable = "Active Hours information could not be found."
+			Write-Console -Verbose -Text $outputVariable
+			$outputVariable | Out-FileWithErrorHandling -FilePath $WinUpdateActiveHours -Append
+		}
+	}
+	else
+	{
+		$outputVariable = "Active Hours registry path not found on this system."
+		Write-Console -Verbose -Text $outputVariable
+		$outputVariable | Out-FileWithErrorHandling -FilePath $WinUpdateActiveHours -Append
+	}
+	#endregion Get Active Hours Information
 }

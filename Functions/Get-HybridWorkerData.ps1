@@ -177,25 +177,34 @@ Write-Console -MessageSegments @(
 	@{ Text = "Gathering Hybrid Worker registry"; ForegroundColor = "Cyan" }
 )
 
-$RegoutputFile = "$miscFolder`Reg-HybridRunbookWorker.txt"
-if (Test-Path "HKLM:\SOFTWARE\Microsoft\HybridRunbookWorker")
-{
-	REG EXPORT "HKLM\SOFTWARE\Microsoft\HybridRunbookWorker" $RegoutputFile /y | Out-Null
-}
-else
-{
-	"'HKLM:\SOFTWARE\Microsoft\HybridRunbookWorker' Not present" | Out-FileWithErrorHandling -Force -FilePath $RegoutputFile
-}
+$registryChecks = @(
+	@{
+		RegPathPS  = 'HKLM:\SOFTWARE\Microsoft\HybridRunbookWorker'
+		RegPathRaw = 'HKLM\SOFTWARE\Microsoft\HybridRunbookWorker'
+		OutputFile = "$miscFolder\Reg-HybridRunbookWorker.txt"
+	},
+	@{
+		RegPathPS  = 'HKLM:\SOFTWARE\Microsoft\HybridRunbookWorkerV2'
+		RegPathRaw = 'HKLM\SOFTWARE\Microsoft\HybridRunbookWorkerV2'
+		OutputFile = "$miscFolder\Reg-HybridRunbookWorkerV2.txt"
+	},
+	@{
+		RegPathPS  = 'HKLM:\SOFTWARE\Microsoft\Azure\HybridWorker'
+		RegPathRaw = 'HKLM\SOFTWARE\Microsoft\Azure\HybridWorker'
+		OutputFile = "$miscFolder\Reg-AzureHybridWorker.txt"
+	}
+)
 
-$RegoutputFile = "$miscFolder`Reg-HybridRunbookWorkerV2.txt"
-if (Test-Path "HKLM:\SOFTWARE\Microsoft\HybridRunbookWorkerV2")
+foreach ($reg in $registryChecks)
 {
-	REG EXPORT "HKLM\SOFTWARE\Microsoft\HybridRunbookWorkerV2" $RegoutputFile /y | Out-Null
+	if (Test-Path $reg.RegPathPS)
+	{
+		REG EXPORT $reg.RegPathRaw $reg.OutputFile /y | Out-Null
+	}
+	else
+	{
+		"'$($reg.RegPathPS)' Not present" | Out-FileWithErrorHandling -Force -FilePath $reg.OutputFile
+	}
 }
-else
-{
-	"'HKLM:\SOFTWARE\Microsoft\HybridRunbookWorkerV2' Not present" | Out-FileWithErrorHandling -Force -FilePath $RegoutputFile
-}
-
 
 #endregion Hybrid Worker Registry

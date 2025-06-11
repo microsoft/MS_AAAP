@@ -3,40 +3,46 @@
 		Generate and collect logs needed to assist Microsoft Support with customer support cases.
 	
 	.DESCRIPTION
-		This script collects the log files and diagnostic information required by Microsoft Support to investigate customer issues. The data is saved to a folder named `C:\MicrosoftSupportLogs_<LocalComputerName>`. Please note that the collected data is not automatically uploaded; users must manually zip the folder and its subfolders and then upload it to Microsoft Support.
+		This script collects the log files and diagnostic information required by Microsoft Support to investigate customer issues. The data is saved to a folder named `C:\MS_AAAP_<LocalComputerName>`. Please note that the collected data is not automatically uploaded; users must manually zip the folder and its subfolders and then upload it to Microsoft Support.
 	
 	.PARAMETER OutputFolder
-		Specifies the folder where the collected logs and diagnostic data will be saved. If not provided, the script defaults to `C:\MicrosoftSupportLogs_<LocalComputerName>`.
+		Specifies the folder where the collected logs and diagnostic data will be saved. If not provided, the script defaults to `C:\MS_AAAP_<LocalComputerName>`.
 	
 	.PARAMETER DontDisplayProgressBar
 		Suppresses the display of the progress bar during the script execution. Use this parameter in environments where progress indicators are unnecessary or could interfere with automation.
 	
+	.PARAMETER AzureLocation
+		A description of the AzureLocation parameter.
+	
+	.PARAMETER SkipNetworkConnectivityCheck
+		Allows you to skip the network connectivity check.
+	
 	.EXAMPLE
 		Run the script to collect logs:
 		.\Generate-Microsoft-Support-Logs.ps1
-
+	
 	.EXAMPLE
 		Run the script to collect logs and output to a specific folder:
 		.\Generate-Microsoft-Support-Logs.ps1 -OutputFolder `C:\Temp`
-
+	
 	.EXAMPLE
 		Run the script to collect logs and hide the progress bar:
 		.\Generate-Microsoft-Support-Logs.ps1 -DontDisplayProgressBar
 	
 	.OUTPUTS
-		A folder containing log files and diagnostic information. By default, the folder is created in the script's current directory or at `C:\MicrosoftSupportLogs_<LocalComputerName>`. If the `-OutputFolder` parameter is specified, the data is saved to the provided path instead. The folder may include subfolders to organize the collected data.
+		A folder containing log files and diagnostic information. By default, the folder is created in the script's current directory or at `C:\MS_AAAP_<LocalComputerName>`. If the `-OutputFolder` parameter is specified, the data is saved to the provided path instead. The folder may include subfolders to organize the collected data.
 	
 	.NOTES
 		Authors:
-			Austin Mack (austinm@microsoft.com)
-			Blake Drumm (blake.drumm@microsoft.com)
-        
-        Contributors: 
-				Robert Janes (robertjanes@microsoft.com)
-				Piotr Walesiak (piotr.walesiak@microsoft.com)
-
+		Austin Mack (austinm@microsoft.com)
+		Blake Drumm (blake.drumm@microsoft.com)
+		
+		Contributors:
+		Robert Janes (robertjanes@microsoft.com)
+		Piotr Walesiak (piotr.walesiak@microsoft.com)
+		
 		Version: DevelopmentVersion
-		Last Modified: 18th March 2025
+		Last Modified: 2nd June 2025
 		
 		MIT License
 		
@@ -64,40 +70,21 @@
 		None. You do not need to pipe any input to this script.
 	
 	.LINK
-		For additional information: https://github.com/microsoft/MicrosoftSupportLogs
+		For additional information: https://github.com/microsoft/MS_AAAP
 #>
 [CmdletBinding()]
 param
 (
 	[Alias('OutputPath', 'op', 'OutputDirectory', 'od')]
-	[string]$OutputFolder = "C:\MicrosoftSupportLogs",
+	[string]$OutputFolder = "C:\MS_AAAP",
 	[Alias('NoProgressBar', 'npb', 'ddpb')]
 	[switch]$DontDisplayProgressBar,
+	[ValidateSet('asiapacific', 'australiacentral', 'australiacentral2', 'australiaeast', 'australiasoutheast', 'brazilsouth', 'brazilsoutheast', 'canadaeast', 'canadacentral', 'centralindia', 'centralus', 'centralusstage', 'centraluseuap', 'chinaeast2', 'chinanorth', 'chinanorth2', 'chinanorth3', 'eastasia', 'eastasiastage', 'eastus', 'eastus2', 'eastus2euap', 'eastus2stage', 'eastusstg', 'europe', 'france', 'francecentral', 'francesouth', 'germany', 'germanynorth', 'germanywestcentral', 'global', 'india', 'israel', 'israelcentral', 'italy', 'italynorth', 'japan', 'japaneast', 'japanwest', 'jioindiacentral', 'jioindiawest', 'korea', 'koreacentral', 'koreasouth', 'mexicocentral', 'newzealand', 'newzealandnorth', 'norway', 'norwayeast', 'norwaywest', 'northeurope', 'northcentralus', 'northcentralusstage', 'poland', 'polandcentral', 'qatar', 'qatarcentral', 'singapore', 'southafrica', 'southafricanorth', 'southafricawest', 'southcentralus', 'southcentralusstg', 'southindia', 'spaincentral', 'sweden', 'swedencentral', 'switzerland', 'switzerlandnorth', 'switzerlandwest', 'uaecentral', 'uaenorth', 'uksouth', 'ukwest', 'unitedstates', 'usgov', 'usgovarizona', 'usgovtexas', 'usgovvirginia', 'westcentralus', 'westeurope', 'westindia', 'westus', 'westus2', 'westus3', 'westusstage', 'none')]
 	[Alias('Location')]
-	[ValidateSet(
-				 'asiapacific', 'australiacentral', 'australiacentral2', 'australiaeast',
-				 'australiasoutheast', 'brazilsouth', 'brazilsoutheast', 'canadaeast',
-				 'canadacentral', 'centralindia', 'centralus', 'centralusstage',
-				 'centraluseuap', 'chinaeast2', 'chinanorth', 'chinanorth2',
-				 'chinanorth3', 'eastasia', 'eastasiastage', 'eastus', 'eastus2',
-				 'eastus2euap', 'eastus2stage', 'eastusstg', 'europe', 'france',
-				 'francecentral', 'francesouth', 'germany', 'germanynorth',
-				 'germanywestcentral', 'global', 'india', 'israel', 'israelcentral',
-				 'italy', 'italynorth', 'japan', 'japaneast', 'japanwest',
-				 'jioindiacentral', 'jioindiawest', 'korea', 'koreacentral',
-				 'koreasouth', 'mexicocentral', 'newzealand', 'newzealandnorth',
-				 'norway', 'norwayeast', 'norwaywest', 'northeurope',
-				 'northcentralus', 'northcentralusstage', 'poland', 'polandcentral',
-				 'qatar', 'qatarcentral', 'singapore', 'southafrica',
-				 'southafricanorth', 'southafricawest', 'southcentralus',
-				 'southcentralusstg', 'southindia', 'spaincentral', 'sweden',
-				 'swedencentral', 'switzerland', 'switzerlandnorth',
-				 'switzerlandwest', 'uaecentral', 'uaenorth', 'uksouth',
-				 'ukwest', 'unitedstates', 'usgov', 'usgovarizona',
-				 'usgovtexas', 'usgovvirginia', 'westcentralus', 'westeurope',
-			  'westindia', 'westus', 'westus2', 'westus3', 'westusstage', 'none'
-	)]
-	[string]$AzureLocation = 'none'
+	[string]$AzureLocation = 'none',
+	[Parameter(HelpMessage = 'Allows you to skip the network connectivity check.')]
+	[Alias('sncc', 'SkipNetworkCheck')]
+	[switch]$SkipNetworkConnectivityCheck
 )
 BEGIN
 {
@@ -123,7 +110,7 @@ BEGIN
 	
 	if (($version -eq ("Development" + "Version")) -and (-NOT (Test-Path "$ScriptPath\Functions")))
 	{
-		Write-Warning "Unable to continue because the script was copied from GitHub instead of downloaded from the release. Please download the latest release here: https://aka.ms/MicrosoftSupportLogs"
+		Write-Warning "Unable to continue because the script was copied from GitHub instead of downloaded from the release. Please download the latest release here: https://aka.ms/MS_AAAP"
 		break
 	}
 	
@@ -133,11 +120,85 @@ BEGIN
 	
 	if (-NOT (Test-Path Function:\Write-Console))
 	{
-		Write-Warning "Unable to continue because the script was copied from GitHub instead of downloaded from the release. Please download the latest release here: https://aka.ms/MicrosoftSupportLogs"
+		Write-Warning "Unable to continue because the script was copied from GitHub instead of downloaded from the release. Please download the latest release here: https://aka.ms/MS_AAAP"
 		break
 	}
 	
 	Write-ScriptProgress -Activity 'Gathering data' -PercentComplete 1
+	
+	#region Output Path
+	
+<#
+if (-NOT $ScriptPath) {
+    $OutputFolder = "C:\MS_AAAP"
+} else {
+    $OutputFolder = "$ScriptPath\MS_AAAP"
+}
+#>
+	
+	# Ensure the output folder path is correctly formatted
+	if ($OutputFolder.EndsWith('\') -or $OutputFolder.EndsWith('/'))
+	{
+		$OutputFolder = $OutputFolder.TrimEnd('\', '/') + "_$($env:computerName)\"
+	}
+	else
+	{
+		$OutputFolder += "_$($env:computerName)\"
+	}
+	# Check if the output folder exists
+	if (Test-Path $OutputFolder -ErrorAction SilentlyContinue)
+	{
+		try
+		{
+			# Attempt to remove the folder recursively
+			Remove-Item $OutputFolder -Recurse -Force -ErrorAction Stop
+			Write-Verbose "Removed existing folder: $OutputFolder"
+			<#
+			Write-Console -MessageSegments @(
+				@{ Text = "Removed existing folder: "; ForegroundColor = "DarkYellow" },
+				@{ Text = $OutputFolder; ForegroundColor = "Gray" }
+			)
+			#>
+		}
+		catch
+		{
+			Write-Console -MessageSegments @(
+				@{ Text = "Failed to remove folder: $($_.Exception.Message)"; ForegroundColor = "Red" }
+			)
+			try
+			{
+				# Remove folder contents if the full folder removal failed
+				Get-ChildItem -Path "$OutputFolder*" -Recurse -Force -ErrorAction Stop |
+				ForEach-Object {
+					try
+					{
+						Remove-Item -Path $_.FullName -Recurse -Force -ErrorAction Stop
+					}
+					catch
+					{
+						Write-Console -MessageSegments @(
+							@{ Text = "Failed to remove: $_"; ForegroundColor = "Red" }
+						)
+					}
+				}
+				Write-Console -MessageSegments @(
+					@{ Text = "Removed existing folder contents: "; ForegroundColor = "DarkYellow" },
+					@{ Text = $OutputFolder; ForegroundColor = "Gray" }
+				)
+			}
+			catch
+			{
+				Write-Console -MessageSegments @(
+					@{ Text = "Unable to remove folder contents: $($_.Exception.Message)"; ForegroundColor = "Red" }
+				)
+			}
+		}
+	}
+	Write-Console -MessageSegments @(
+		@{ Text = "Output folder: "; ForegroundColor = "Gray" },
+		@{ Text = $OutputFolder; ForegroundColor = "White" }
+	)
+	#endregion Output Path
 	
 	#region Check is Administrator
 	# Collect passed parameters and construct argument list
@@ -185,89 +246,15 @@ cd '$ScriptPath';
 	{
 		$permissiongranted = "Currently running as administrator - proceeding with script execution..."
 		Write-Console $permissiongranted -ForegroundColor Green
-		Create-Folder $outputFolder
+		Create-Folder $OutputFolder
 	}
 	
 	#endregion Check is Administrator
 	
-	#region Output Path
-	
-<#
-if (-NOT $ScriptPath) {
-    $outputFolder = "C:\MicrosoftSupportLogs"
-} else {
-    $outputFolder = "$ScriptPath\MicrosoftSupportLogs"
-}
-#>
-	
-	# Ensure the output folder path is correctly formatted
-	if ($outputFolder.EndsWith('\') -or $outputFolder.EndsWith('/'))
-	{
-		$outputFolder = $outputFolder.TrimEnd('\', '/') + "_$($env:computerName)\"
-	}
-	else
-	{
-		$outputFolder += "_$($env:computerName)\"
-	}
-	# Check if the output folder exists
-	if (Test-Path $outputFolder -ErrorAction SilentlyContinue)
-	{
-		try
-		{
-			# Attempt to remove the folder recursively
-			Remove-Item $outputFolder -Recurse -Force -ErrorAction Stop
-			Write-Verbose "Removed existing folder: $outputFolder"
-			<#
-			Write-Console -MessageSegments @(
-				@{ Text = "Removed existing folder: "; ForegroundColor = "DarkYellow" },
-				@{ Text = $outputFolder; ForegroundColor = "Gray" }
-			)
-			#>
-		}
-		catch
-		{
-			Write-Console -MessageSegments @(
-				@{ Text = "Failed to remove folder: $($_.Exception.Message)"; ForegroundColor = "Red" }
-			)
-			try
-			{
-				# Remove folder contents if the full folder removal failed
-				Get-ChildItem -Path "$outputFolder*" -Recurse -Force -ErrorAction Stop |
-				ForEach-Object {
-					try
-					{
-						Remove-Item -Path $_.FullName -Recurse -Force -ErrorAction Stop
-					}
-					catch
-					{
-						Write-Console -MessageSegments @(
-							@{ Text = "Failed to remove: $_"; ForegroundColor = "Red" }
-						)
-					}
-				}
-				Write-Console -MessageSegments @(
-					@{ Text = "Removed existing folder contents: "; ForegroundColor = "DarkYellow" },
-					@{ Text = $outputFolder; ForegroundColor = "Gray" }
-				)
-			}
-			catch
-			{
-				Write-Console -MessageSegments @(
-					@{ Text = "Unable to remove folder contents: $($_.Exception.Message)"; ForegroundColor = "Red" }
-				)
-			}
-		}
-	}
-	Write-Console -MessageSegments @(
-		@{ Text = "Output folder: "; ForegroundColor = "Gray" },
-		@{ Text = $outputFolder; ForegroundColor = "White" }
-	)
-	#endregion Output Path
-	
 	$previousProgressPreferenceSetting = $Global:ProgressPreference
 	
 	# Set the location for the console to the output folder
-	#Push-Location $outputFolder
+	#Push-Location $OutputFolder
 	
 	Write-ScriptProgress -Activity 'Gathering data' -PercentComplete 2
 	
@@ -432,7 +419,7 @@ PROCESS
 	Write-ScriptProgress -Activity 'Gathering data' -PercentComplete 15
 	
 	#region Azure Machine Details
-	$azureVM = "$outputFolder`AzureVM\"
+	$azureVM = "$OutputFolder`AzureVM\"
 	
 	#region Get VM Metadata
 	Write-Console -Text "Attempting to gather Azure VM compute metadata" -ForegroundColor Cyan
@@ -517,7 +504,9 @@ PROCESS
 			"C:\WindowsAzure\Logs\Plugins\Microsoft.Azure.Automation.HybridWorker.HybridWorkerForWindows",
 			"C:\WindowsAzure\Logs\Plugins\Microsoft.CPlat.Core.WindowsPatchExtension",
 			"C:\WindowsAzure\Logs\Plugins\Microsoft.GuestConfiguration.ConfigurationforWindows",
-			"C:\WindowsAzure\Logs\Plugins\Microsoft.Powershell.DSC"
+			"C:\WindowsAzure\Logs\Plugins\Microsoft.Powershell.DSC",
+			"C:\WindowsAzure\Logs\WaAppAgent.log",
+			"C:\WindowsAzure\Logs\TransparentInstaller.log"
 		) | ForEach-Object {
 			$sourcePath = $_
 			if (Test-Path $sourcePath)
@@ -539,11 +528,12 @@ PROCESS
 	#endregion Azure Machine Details
 	
 	Write-ScriptProgress -Activity 'Gathering data' -PercentComplete 19
-	
-	#region Other Endpoint Connectivity Tests
-	. "$ScriptPath\Functions\Start-EndpointConnectivityTests.ps1"
-	#endregion Other Endpoint Connectivity Tests
-	
+	if (-NOT $SkipNetworkConnectivityCheck)
+	{
+		#region Other Endpoint Connectivity Tests
+		. "$ScriptPath\Functions\Start-EndpointConnectivityTests.ps1"
+		#endregion Other Endpoint Connectivity Tests
+	}
 	Write-ScriptProgress -Activity 'Gathering data' -PercentComplete 20
 	
 	#region Gather Hybrid Worker data
@@ -554,14 +544,14 @@ PROCESS
 	
 	#region Gathering Event Logs
 	. "$ScriptPath\Functions\Get-EventLogs.ps1"
-	$eventLogFolder = "$outputFolder`EventLogs\"
+	$eventLogFolder = "$OutputFolder`EventLogs\"
 	Get-EventLogs -OutputPath $eventLogFolder
 	#endregion Gathering Event Logs
 	
 	Write-ScriptProgress -Activity 'Gathering data' -PercentComplete 24
 	
 	#region Proxy Information
-	$ProxyFolder = "$outputFolder`Network\ProxySettings\"
+	$ProxyFolder = "$OutputFolder`Network\ProxySettings\"
 	Create-Folder $ProxyFolder
 	$OutputFile = "$ProxyFolder\Win-HTTP-Proxy.txt"
 	netsh Winhttp show proxy *> $OutputFile
@@ -883,20 +873,20 @@ PROCESS
 	#region Packages Directory Listing
 	if (Test-Path "C:\Packages")
 	{
-		if ($outputFolder -ne "" -and (Test-Path "$outputFolder`Packages"))
+		if ($OutputFolder -ne "" -and (Test-Path "$OutputFolder`Packages"))
 		{
 			try
 			{
-				Remove-Item "$outputFolder`Packages" -Recurse -Force -ErrorAction Stop
+				Remove-Item "$OutputFolder`Packages" -Recurse -Force -ErrorAction Stop
 			}
 			catch [System.IO.IOException]
 			{
 				if ($_.Exception.Message -like "*because it is being used by another process*")
 				{
-					Write-Warning "Cannot remove item $outputFolder`Packages: The process cannot access the file because it is being used by another process."
+					Write-Warning "Cannot remove item $OutputFolder`Packages: The process cannot access the file because it is being used by another process."
 					
 					# Find processes locking the files
-					$lockingProcesses = Get-LockingProcess -Path "$outputFolder`Packages"
+					$lockingProcesses = Get-LockingProcess -Path "$OutputFolder`Packages"
 					
 					if ($lockingProcesses)
 					{
@@ -926,11 +916,11 @@ PROCESS
 							}
 							
 							# Retry removing the item
-							Remove-Item "$outputFolder`Packages" -Recurse -Force
+							Remove-Item "$OutputFolder`Packages" -Recurse -Force
 						}
 						else
 						{
-							Write-Warning "Cannot proceed without removing $outputFolder`Packages. Exiting."
+							Write-Warning "Cannot proceed without removing $OutputFolder`Packages. Exiting."
 							break
 						}
 					}
@@ -946,8 +936,8 @@ PROCESS
 				}
 			}
 		}
-		Create-Folder "$outputFolder`Packages\"
-		Get-CustomChildItem "C:\Packages" -Recurse | Out-FileWithErrorHandling -Force -FilePath "$outputFolder`Packages\Packages-Directory-listing.txt"
+		Create-Folder "$OutputFolder`Packages\"
+		Get-CustomChildItem "C:\Packages" -Recurse | Out-FileWithErrorHandling -Force -FilePath "$OutputFolder`Packages\Packages-Directory-listing.txt"
 	}
 	#endregion Packages Directory Listing
 	
@@ -955,297 +945,7 @@ PROCESS
 	
 	#region Gather Packages
 	# ================================================================================================
-	@(
-		"C:\Packages\Plugins\Microsoft.Azure.Automation.HybridWorker.HybridWorkerForWindows",
-		"C:\Packages\Plugins\Microsoft.CPlat.Core.WindowsPatchExtension",
-		"C:\Packages\Plugins\Microsoft.SoftwareUpdateManagement.WindowsOsUpdateExtension"
-	) | ForEach-Object -Process {
-		$pluginPath = $_
-		$pluginPathFolder = ($_ | Split-Path -Leaf)
-		
-		try
-		{
-			# Add initial plugin check output
-			Write-Console -MessageSegments @(
-				@{ Text = "Checking plugin path: "; ForegroundColor = "Cyan" },
-				@{ Text = $pluginPath; ForegroundColor = "White" }
-			)
-			
-			if (Test-Path "$pluginPath")
-			{
-				Write-Console -Text "Plugin path found - Processing..." -ForegroundColor Green
-				
-				try
-				{
-					$packagesPluginFolder = "$outputFolder`Packages\Plugins\$pluginPathFolder"
-					Copy-File "$pluginPath" $packagesPluginFolder
-					Write-Verbose -Message "Copied plugin files to: $packagesPluginFolder"
-				}
-				catch
-				{
-					Write-Console -MessageSegments @(
-						@{
-							Text		    = "ERROR: Failed to copy plugin files - "
-							ForegroundColor = "Red"
-						},
-						@{
-							Text		    = $_.Exception.Message
-							ForegroundColor = "DarkRed"
-						}
-					)
-					continue
-				}
-				
-				# Status Files Summary
-				try
-				{
-					$Statusfiles = Get-ChildItem "$packagesPluginFolder\*.status" -Recurse -ErrorAction Stop | Sort-Object -Property Name
-					$objStatusList = @()
-					$StatusSummary = "$packagesPluginFolder\Status_Summary.txt"
-					$StatusSummaryDetailed = "$packagesPluginFolder\Status_Summary_Detailed.txt"
-					
-					Write-Verbose -Message "Found $($Statusfiles.Count) status files to process"
-					
-					foreach ($fileStatus in $Statusfiles)
-					{
-						try
-						{
-							<#
-							Write-Console -MessageSegments @(
-								@{
-									Text		    = "Processing status file: "
-									ForegroundColor = "White"
-								},
-								@{
-									Text		    = $fileStatus.Name
-									ForegroundColor = "Cyan"
-								}
-							)
-							#>
-							Write-Verbose -Message "Working on: $($fileStatus.FullName)"
-							# Create status file headers
-							@"
-====================================================================================================================
-====================================================================================================================
-==  $($fileStatus.FullName)
-"@ | Out-FileWithErrorHandling -Append -FilePath $StatusSummaryDetailed
-							
-							# Process JSON content
-							$JsonStatus = Get-Content $fileStatus.FullName -ErrorAction Stop | ConvertFrom-Json
-							$JsonStatus | Format-Table -AutoSize | Out-FileWithErrorHandling -Append -FilePath $StatusSummaryDetailed -Width 4096
-							
-							if ($JsonStatus.status.substatus)
-							{
-								
-								foreach ($substatus in $JsonStatus.status.substatus)
-								{
-									try
-									{
-										"$CRLF`----------------------------------------------------------------------------------------------------------------$CRLF" | Out-FileWithErrorHandling -Append -FilePath $StatusSummaryDetailed
-										#region Microsoft.Azure.Automation.HybridWorker.HybridWorkerForWindows
-										if ($fileStatus.FullName -match "Microsoft.Azure.Automation.HybridWorker.HybridWorkerForWindows")
-										{
-											$substatus | Format-Table configurationAppliedTime, Name, status, Code | Out-FileWithErrorHandling -Append -FilePath $StatusSummaryDetailed
-											Write-Verbose -Message "Encountered: Microsoft.Azure.Automation.HybridWorker.HybridWorkerForWindows"
-											# Iterate over each main JSON object
-											foreach ($entry in $substatus)
-											{
-												# Process the main status formatted message
-												$formattedMessage = $entry.formattedMessage.message
-												$logEntries = @()
-												# Split the message text by line breaks and parse each line
-												foreach ($line in $formattedMessage -split "\r\n")
-												{
-													Write-Verbose -Message "3"
-													if ($line -match '^\[(?<timestamp>[^\]]+)\]\s+(?<message>.+)$')
-													{
-														# Extract timestamp and message using named capture groups
-														$logEntry = [PSCustomObject]@{
-															Timestamp = $matches['timestamp']
-															Message   = $matches['message']
-														}
-														$logEntries += $logEntry
-													}
-												}
-												Write-Verbose -Message "5"
-												# Replace the original message with the structured JSON
-												$entry.formattedMessage.message = $logEntries
-											}
-											# Output the entire modified JSON structure
-											$substatus.formattedMessage.Message | Out-FileWithErrorHandling -Append -Force -FilePath $StatusSummaryDetailed
-										}
-										#endregion Microsoft.Azure.Automation.HybridWorker.HybridWorkerForWindows
-										elseif ($substatus.formattedMessage.message)
-										{
-											$substatusObject = [PSCustomObject]@{
-												timestampUTC = $JsonStatus.timestampUTC
-												Name		 = $substatus.Name
-												status	     = $substatus.status
-												Code		 = $substatus.Code
-											} | Out-FileWithErrorHandling -Append -Force -FilePath $StatusSummaryDetailed
-											$subStatusMessage = $substatus.formattedMessage.message | ConvertFrom-Json
-											$subStatusMessage | Format-Table -Wrap | Out-FileWithErrorHandling -Append -FilePath $StatusSummaryDetailed
-											
-											if ($subStatusMessage.patches)
-											{
-												$subStatusMessage.patches | Format-Table -Wrap | Out-FileWithErrorHandling -Append -FilePath $StatusSummaryDetailed
-											}
-										}
-										<#
-										# Add status color coding
-										$statusColor = switch ($substatus.status)
-										{
-											"Success" { "Green" }
-											"Error" { "Red" }
-											"Warning" { "Yellow" }
-											default { "Gray" }
-										}
-										
-										Write-Console -MessageSegments @(
-											@{
-												Text		    = "Substatus: "
-												ForegroundColor = "White"
-											},
-											@{
-												Text		    = "$($substatus.Name) - $($substatus.Status)"
-												ForegroundColor = $statusColor
-											}
-										)
-										#>
-									}
-									catch
-									{
-										Write-Console -MessageSegments @(
-											@{
-												Text		    = "ERROR: Failed to process substatus in status file: $($fileStatus.FullName) - "
-												ForegroundColor = "Red"
-											},
-											@{
-												Text		    = $_.Exception.Message
-												ForegroundColor = "DarkRed"
-											}
-										)
-									}
-								}
-							}
-							else
-							{
-								Write-Console -Text "No substatus found in status file: $($fileStatus.FullName)" -ForegroundColor Yellow
-							}
-							if ($subStatusMessage.patchServiceUsed)
-							{
-								$Statusobjxx = [PSCustomObject]@{
-									Name			 = $JsonStatus.status.name
-									Status		     = $JsonStatus.status.status
-									Operation	     = $JsonStatus.status.operation
-									patchServiceUsed = $subStatusMessage.patchServiceUsed
-									Code			 = $JsonStatus.status.code
-									Message		     = $JsonStatus.status.formattedMessage.message
-									timestampUTC	 = $JsonStatus.timestampUTC
-								}
-							}
-							else
-							{
-								$Statusobjxx = [PSCustomObject]@{
-									Name	  = $JsonStatus.status.name
-									Status    = $JsonStatus.status.status
-									Operation = $JsonStatus.status.operation
-									Code	  = $JsonStatus.status.code
-									Message   = ($JsonStatus.status.formattedMessage.message).Replace("`"[", "").Replace(".`"]", "").Replace("].`"", "")
-									timestampUTC = $JsonStatus.timestampUTC
-								}
-							}
-							
-							$objStatusList += $Statusobjxx
-						}
-						catch
-						{
-							Write-Console -MessageSegments @(
-								@{
-									Text		    = "ERROR: Failed to process status file '$($fileStatus.Name)' - "
-									ForegroundColor = "Red"
-								},
-								@{
-									Text		    = $_.Exception.Message
-									ForegroundColor = "DarkRed"
-								}
-							)
-						}
-					}
-					
-					if ($objStatusList)
-					{
-						try
-						{
-							Write-Console -Text "Writing status summary to: $StatusSummary" -ForegroundColor Green
-							if ($pluginPathFolder -eq 'Microsoft.SoftwareUpdateManagement.WindowsOsUpdateExtension')
-							{
-								Write-Verbose "Patch Service Used: $($objStatusList.patchServiceUsed)"
-								$objStatusList | Sort-Object timestampUTC | Format-Table timestampUTC, patchServiceUsed, Operation, Status, Message -Wrap |
-								Out-FileWithErrorHandling -FilePath $StatusSummary
-							}
-							else
-							{
-								Write-Verbose "Patch Service not used."
-								$objStatusList | Sort-Object timestampUTC | Format-Table timestampUTC, Operation, Status, Message -Wrap |
-								Out-FileWithErrorHandling -FilePath $StatusSummary
-							}
-							
-						}
-						catch
-						{
-							Write-Console -MessageSegments @(
-								@{
-									Text		    = "ERROR: Failed to write status summary - "
-									ForegroundColor = "Red"
-								},
-								@{
-									Text		    = $_.Exception.Message
-									ForegroundColor = "DarkRed"
-								}
-							)
-						}
-					}
-					else
-					{
-						Write-Console -Text "No status information collected to summarize" -ForegroundColor Yellow
-					}
-				}
-				catch
-				{
-					Write-Console -MessageSegments @(
-						@{
-							Text		    = "ERROR: Failed to process status files - "
-							ForegroundColor = "Red"
-						},
-						@{
-							Text		    = $_.Exception.Message
-							ForegroundColor = "DarkRed"
-						}
-					)
-				}
-				
-				Write-Verbose -Message "Completed processing plugin: $pluginPathFolder"
-			}
-			else
-			{
-				Write-Verbose -Message "Plugin path not found: $pluginPath"
-			}
-		}
-		catch
-		{
-			Write-Console -MessageSegments @(
-				@{
-					Text = "CRITICAL ERROR: Failed to process plugin '$pluginPathFolder' - "
-					ForegroundColor = "Red"
-				},
-				@{
-					Text		    = $_.Exception.Message
-					ForegroundColor = "DarkRed"
-				}
-			) -NoNewLine:$false
-		}
-	}
+	. "$ScriptPath\Functions\Get-Packages.ps1"
 	#endregion Gather Packages
 	#endregion Packages
 }
@@ -1257,12 +957,12 @@ END
 	Write-Console "Creating zip file of all output data." -ForegroundColor DarkCyan
 	[Reflection.Assembly]::LoadWithPartialName("System.IO.Compression.FileSystem") | Out-Null
 	[System.AppDomain]::CurrentDomain.GetAssemblies() | Out-Null
-	$SourcePath = Resolve-Path $outputFolder
-	$FolderName = Split-Path $outputFolder -Leaf
+	$SourcePath = Resolve-Path $OutputFolder
+	$FolderName = Split-Path $OutputFolder -Leaf
 	
 	Write-ScriptProgress -Activity 'Gathering data' -PercentComplete 90
 	
-	[string]$filedate = (Get-Date).tostring("MM_dd_yyyy_hh-mm-tt")
+	[string]$filedate = (Get-Date).ToString("MMMdd").ToLower()
 	[string]$destfilename = "$FolderName`_$filedate`.zip"
 	
 	#[string]$destfile = "$ScriptPath\$destfilename"
@@ -1296,13 +996,13 @@ END
 			@{ Text = "'"; ForegroundColor = "DarkCyan" }
 		)
 		#Write-Console "--Cleaning up output directory." -ForegroundColor DarkCyan
-		#Remove-Item $outputFolder -Recurse
+		#Remove-Item $OutputFolder -Recurse
 	}
 	
 	Write-ScriptProgress -Activity 'Gathering data' -PercentComplete 98
 	
 	# Open Output Folder in Explorer
-	Start-Process "explorer.exe" -ArgumentList "$outputFolder" -Verb RunAs
+	Start-Process "explorer.exe" -ArgumentList "$OutputFolder" -Verb RunAs
 	
 	Write-ScriptProgress -Activity 'Gathering data' -PercentComplete 100 -Completed
 	#endregion Zip everything up / Wrap up
